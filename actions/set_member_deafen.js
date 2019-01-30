@@ -6,7 +6,7 @@ module.exports = {
 // This is the name of the action displayed in the editor.
 //---------------------------------------------------------------------
 
-name: "Play File",
+name: "Set Member Deafen",
 
 //---------------------------------------------------------------------
 // Action Section
@@ -14,15 +14,7 @@ name: "Play File",
 // This is the section the action will fall into.
 //---------------------------------------------------------------------
 
-section: "Audio Control",
-
-//---------------------------------------------------------------------
-// Requires Audio Libraries
-//
-// If 'true', this action requires audio libraries to run.
-//---------------------------------------------------------------------
-
-requiresAudioLibraries: true,
+section: "Member Control",
 
 //---------------------------------------------------------------------
 // Action Subtitle
@@ -31,7 +23,8 @@ requiresAudioLibraries: true,
 //---------------------------------------------------------------------
 
 subtitle: function(data) {
-	return `${data.url}`;
+	const channels = ['Mentioned User', 'Command Author', 'Temp Variable', 'Server Variable', 'Global Variable'];
+	return `${channels[parseInt(data.member)]} - ${data.deafen === "0" ? 'Deafen' : 'Undeafen'}`;
 },
 
 //---------------------------------------------------------------------
@@ -42,7 +35,7 @@ subtitle: function(data) {
 // are also the names of the fields stored in the action's JSON data.
 //---------------------------------------------------------------------
 
-fields: ["url", "seek", "volume", "passes", "bitrate", "type"],
+fields: ["member", "varName", "deafen"],
 
 //---------------------------------------------------------------------
 // Command HTML
@@ -63,26 +56,23 @@ fields: ["url", "seek", "volume", "passes", "bitrate", "type"],
 html: function(isEvent, data) {
 	return `
 <div>
-	Local URL:<br>
-	<input id="url" class="round" type="text" value="resources/"><br>
+	<div style="float: left; width: 35%;">
+		Source Member:<br>
+		<select id="member" class="round" onchange="glob.memberChange(this, 'varNameContainer')">
+			${data.members[isEvent ? 1 : 0]}
+		</select>
+	</div>
+	<div id="varNameContainer" style="display: none; float: right; width: 60%;">
+		Variable Name:<br>
+		<input id="varName" class="round" type="text" list="variableList"><br>
+	</div>
 </div>
-<div style="float: left; width: 50%;">
-	Seek Position:<br>
-	<input id="seek" class="round" type="text" value="0"><br>
-	Passes:<br>
-	<input id="passes" class="round" type="text" value="1">
-</div>
-<div style="float: right; width: 50%;">
-	Volume (0 = min; 100 = max):<br>
-	<input id="volume" class="round" type="text" placeholder="Leave blank for automatic..."><br>
-	Bitrate:<br>
-	<input id="bitrate" class="round" type="text" placeholder="Leave blank for automatic...">
-</div><br><br><br><br><br><br><br>
-<div>
-	Play Type:<br>
-	<select id="type" class="round" style="width: 90%;">
-		<option value="0" selected>Add to Queue</option>
-		<option value="1">Play Immediately</option>
+<br><br><br>
+<div style="padding-top: 8px;">
+	Deafen Status:<br>
+	<select id="deafen" class="round" style="width: 50%;">
+		<option value="0" selected>Deafen</option>
+		<option value="1">Undeafen</option>
 	</select>
 </div>`
 },
@@ -96,6 +86,9 @@ html: function(isEvent, data) {
 //---------------------------------------------------------------------
 
 init: function() {
+	const {glob, document} = this;
+
+	glob.memberChange(document.getElementById('member'), 'varNameContainer');
 },
 
 //---------------------------------------------------------------------
@@ -108,36 +101,20 @@ init: function() {
 
 action: function(cache) {
 	const data = cache.actions[cache.index];
-	const Audio = this.getDBM().Audio;
-	const options = {};
-	if(data.seek) {
-		options.seek = parseInt(this.evalMessage(data.seek, cache));
-	}
-	if(data.volume) {
-		options.volume = parseInt(this.evalMessage(data.volume, cache)) / 100;
-	} else if(cache.server) {
-		options.volume = Audio.volumes[cache.server.id] || 0.5;
+	const type = parseInt(data.member);
+	const varName = this.evalMessage(data.varName, cache);
+	const member = this.getMember(type, varName, cache);
+	if(Array.isArray(member)) {
+		this.callListFunc(member, 'setDeaf', [data.deafen === "0"]).then(function() {
+			this.callNextAction(cache);
+		}.bind(this));
+	} else if(member && member.setDeaf) {
+		member.setDeaf(data.deafen === "0").then(function(member) {
+			this.callNextAction(cache);
+		}.bind(this)).catch(this.displayError.bind(this, data, cache));
 	} else {
-		options.volume = 0.5;
+		this.callNextAction(cache);
 	}
-	if(data.passes) {
-		options.passes = parseInt(this.evalMessage(data.passes, cache));
-	}
-	if(data.bitrate) {
-		options.bitrate = parseInt(this.evalMessage(data.bitrate, cache));
-	} else {
-		options.bitrate = 'auto';
-	}
-	const url = this.evalMessage(data.url, cache);
-	if(url) {
-		const info = ['file', options, url];
-		if(data.type === "0") {
-			Audio.addToQueue(info, cache);
-		} else {
-			Audio.playItem(info, cache);
-		}
-	}
-	this.callNextAction(cache);
 },
 
 //---------------------------------------------------------------------

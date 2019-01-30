@@ -14,7 +14,7 @@ name: "Send Embed Message",
 // This is the section the action will fall into.
 //---------------------------------------------------------------------
 
-section: "Messaging",
+section: "Embed Message",
 
 //---------------------------------------------------------------------
 // Action Subtitle
@@ -26,6 +26,27 @@ subtitle: function(data) {
 	const channels = ['Same Channel', 'Command Author', 'Mentioned User', 'Mentioned Channel', 'Default Channel', 'Temp Variable', 'Server Variable', 'Global Variable']
 	return `${channels[parseInt(data.channel)]}: ${data.varName}`;
 },
+
+//---------------------------------------------------------------------
+	 // DBM Mods Manager Variables (Optional but nice to have!)
+	 //
+	 // These are variables that DBM Mods Manager uses to show information
+	 // about the mods for people to see in the list.
+	 //---------------------------------------------------------------------
+
+	 // Who made the mod (If not set, defaults to "DBM Mods")
+	 author: "DBM",
+
+	 // The version of the mod (Defaults to 1.0.0)
+	 version: "1.8.2",
+
+	 // A short description to show on the mod line for this mod (Must be on a single line)
+	 short_description: "Changed Category",
+
+	 // If it depends on any other mods by name, ex: WrexMODS if the mod uses something from WrexMods
+
+
+	 //---------------------------------------------------------------------
 
 //---------------------------------------------------------------------
 // Action Fields
@@ -41,15 +62,15 @@ fields: ["storage", "varName", "channel", "varName2"],
 // Command HTML
 //
 // This function returns a string containing the HTML used for
-// editting actions. 
+// editting actions.
 //
 // The "isEvent" parameter will be true if this action is being used
-// for an event. Due to their nature, events lack certain information, 
+// for an event. Due to their nature, events lack certain information,
 // so edit the HTML to reflect this.
 //
-// The "data" parameter stores constants for select elements to use. 
+// The "data" parameter stores constants for select elements to use.
 // Each is an array: index 0 for commands, index 1 for events.
-// The names are: sendTargets, members, roles, channels, 
+// The names are: sendTargets, members, roles, channels,
 //                messages, servers, variables
 //---------------------------------------------------------------------
 
@@ -90,7 +111,6 @@ html: function(isEvent, data) {
 init: function() {
 	const {glob, document} = this;
 
-	glob.refreshVariableList(document.getElementById('storage'));
 	glob.sendTargetChange(document.getElementById('channel'), 'varNameContainer2')
 },
 
@@ -98,7 +118,7 @@ init: function() {
 // Action Bot Function
 //
 // This is the function for the action within the Bot's Action class.
-// Keep in mind event calls won't have access to the "msg" parameter, 
+// Keep in mind event calls won't have access to the "msg" parameter,
 // so be sure to provide checks for variable existance.
 //---------------------------------------------------------------------
 
@@ -112,18 +132,19 @@ action: function(cache) {
 		this.callNextAction(cache);
 		return;
 	}
+
 	const msg = cache.msg;
 	const channel = parseInt(data.channel);
 	const varName2 = this.evalMessage(data.varName2, cache);
 	const target = this.getSendTarget(channel, varName2, cache);
-	if(Array.isArray(target)) {
-		this.callListFunc(target, 'send', [{embed}]).then(function() {
-			this.callNextAction(cache);
-		}.bind(this));
-	} else if(target && target.send) {
-		target.send({embed}).then(function() {
-			this.callNextAction(cache);
-		}.bind(this)).catch(this.displayError.bind(this, data, cache));
+	if(target && target.send) {
+		try {
+			target.send({embed}).then(function() {
+				this.callNextAction(cache);
+			}.bind(this)).catch(this.displayError.bind(this, data, cache));
+		} catch(e) {
+			this.displayError(data, cache, e);
+		}
 	} else {
 		this.callNextAction(cache);
 	}
